@@ -1,11 +1,12 @@
 package Sys::Timeout::HiRes;
-
 use warnings;
 use strict;
+use Time::HiRes qw{ualarm};
+use Exporter::Declare; 
 
 =head1 NAME
 
-Sys::Timeout::HiRes - The great new Sys::Timeout::HiRes!
+Sys::Timeout::HiRes - handy wrapper simplifying hires alarm timeout's
 
 =head1 VERSION
 
@@ -15,7 +16,6 @@ Version 0.01
 
 our $VERSION = '0.01';
 
-
 =head1 SYNOPSIS
 
 Quick summary of what the module does.
@@ -24,28 +24,58 @@ Perhaps a little code snippet.
 
     use Sys::Timeout::HiRes;
 
-    my $foo = Sys::Timeout::HiRes->new();
-    ...
+    timeout 0.10 { ... } or do { ... };
 
 =head1 EXPORT
 
-A list of functions that can be exported.  You can delete this section
-if you don't export anything, such as for a purely object-oriented module.
 
-=head1 SUBROUTINES/METHODS
+=head2 timeout 
 
-=head2 function1
+Just enough abstraction around Time::HiRes's ualarm to make a nice clean syntax.
+
+    use Sys::Timeout::HiRes;
+    timeout $time { ... } or do { ... };
+
+Much like the example timeout in L<http://perldoc.perl.org/functions/alarm.html> your codeblock
+is wrapped as an eval, please take approperate lexiacl precautions.
+
+NOTE: If $time <= 0 then your codeblock is never run and you jump right to your catch block.
 
 =cut
 
-sub function1 {
+export timeout sublike {
+   my ($time, $code) = @_;
+   return 0 unless $time > 0;
+   
+   eval {
+      local $SIG{ALRM} = sub { die "alarm\n" }; # NB: \n required
+      ualarm($time);
+      &$code;
+      ualarm(0);
+   } or do {
+      die unless $@ eq "alarm\n";   # propagate unexpected errors
+      return 0; # timed out
+   };
+
+   return 1;
 }
 
-=head2 function2
+
+=head2 retry
+
+Retry a block till it passes or count has been met.
+
+    retry 5 { timeout 1 { $obj->long_call } } or do { $obj->error('system not available') };
 
 =cut
 
-sub function2 {
+export retry sublike {
+   my ($times, $code) = @_;
+   return 0 unless $times > 0;
+   for( 1..$times ) {
+      return 1 if &$code;
+   }
+   return 0;
 }
 
 =head1 AUTHOR
