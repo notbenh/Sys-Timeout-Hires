@@ -3,7 +3,4 @@ Changes
 MANIFEST
 README
 lib/Sys/Timeout/HiRes.pm
-t/00-load.t
 t/manifest.t
-t/pod-coverage.t
-t/pod.t
