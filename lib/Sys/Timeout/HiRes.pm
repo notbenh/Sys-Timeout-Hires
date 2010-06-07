@@ -1,7 +1,7 @@
 package Sys::Timeout::HiRes;
 use warnings;
 use strict;
-use Time::HiRes qw{ualarm};
+use Time::HiRes qw{ualarm sleep};
 use Exporter::Declare; 
 
 =head1 NAME
@@ -36,6 +36,10 @@ Just enough abstraction around Time::HiRes's ualarm to make a nice clean syntax.
     use Sys::Timeout::HiRes;
     timeout $time { ... } or do { ... };
 
+By default $time is expected to be a floating point number, this is coverted to mirco seconds
+for you, though if you want to address in actual microseconds you can pass a string that starts
+with 'm' (0.000123 => 'm123' => 123 microseconds ).
+
 Much like the example timeout in L<http://perldoc.perl.org/functions/alarm.html> your codeblock
 is wrapped as an eval, please take approperate lexiacl precautions.
 
@@ -45,6 +49,9 @@ NOTE: If $time <= 0 then your codeblock is never run and you jump right to your 
 
 export timeout sublike {
    my ($time, $code) = @_;
+   { no warnings 'numeric';
+   $time = ( $time =~ m/^m(\d+)/i ) ? $1 : (0+$time) * 1000000 ; # convert 'seconds' to microseconds
+   };
    return 0 unless $time > 0;
    
    eval {
@@ -53,10 +60,9 @@ export timeout sublike {
       &$code;
       ualarm(0);
    } or do {
-      die unless $@ eq "alarm\n";   # propagate unexpected errors
+      die $@ unless $@ eq "alarm\n" ; #&& length($@);   # propagate unexpected errors
       return 0; # timed out
    };
-
    return 1;
 }
 
@@ -77,6 +83,15 @@ export retry sublike {
    }
    return 0;
 }
+
+
+=head2 sleep
+
+Due to issues with system sleep we export Time::HiRes's sleep automaticly so you don't need to think about it.
+
+=cut
+
+export('sleep');
 
 =head1 AUTHOR
 

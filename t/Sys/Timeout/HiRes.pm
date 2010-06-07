@@ -2,6 +2,7 @@ package TEST::Sys::Timeout::HiRes;
 use strict;
 use warnings;
 use Fennec;
+use Carp::Always;
 
 tests load {
    use_ok('Sys::Timeout::HiRes' );
@@ -10,8 +11,16 @@ tests load {
 
 tests timeout {
    use Sys::Timeout::HiRes;
-   ok (!timeout 1 { sleep(2) }, q{timeout yanks a sleep process correctly });
-   ok (!timeout 2 { sleep(1) }, q{timeout does not yank this one });
+
+   # seems that fennec's ok really really really does not like this open syntax
+   #ok(!timeout '0.1' { sleep(1) } , q{tripped timeout} );
+   #ok( timeout '2.1' { sleep(1) } , q{passed timeout} );
+
+   my $t = sub{ timeout shift { sleep(1) } };
+   ok(!$t->(0.1),    q{tripped timeout} );
+   ok(!$t->('m500'), q{tripped timeout} );
+   ok(!$t->(2.1),    q{passed timeout}  );
+   ok(!$t->('m5000000'),q{passed timeout}  );
 }
 
 tests retry {
@@ -27,7 +36,5 @@ tests retry {
    $i = 0;
    ok(!retry 10 { $i++; 0; }, q{run test} ); # block returns false, hit every cycle
    is( $i , 10, q{corect number of runs} );
-}
-
-
+} 
 1;
